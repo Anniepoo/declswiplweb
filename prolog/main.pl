@@ -77,6 +77,76 @@ home_page -->
     ]).
 
 basic_wrapper -->
-    html(div(button(['hx-post'('/clicked'),
+    html(div(\do_button)).
+
+
+do_button -->
+      {
+    get_time(Now),
+    format_time(atom(Time),
+                ' %A  %H%M:%S', Now)
+      },
+      htmx(button(['hx-post'('/clicked'),
+                   style('background-color: #FF0000;'),
                      'hx-swap'(outerHTML)],
-                    'click me'))).
+                  [ 'last clicked at', Time])).
+
+% there's an inherent diff on the back end between loading, which should
+% not modify state, and clicking on the button, which could. May need
+% a special htmx_cmd flag that says this has to  be handled differently.
+
+% think through access
+%
+% makes debugging from traffic capture harder
+
+% do_button(hi)
+% needs  'hx-vars'('greet:"~w"'-[Greeting]),
+%
+%
+% 1. htmx//1 inspects the termerized htmx for px-post.
+% 2. htmx//1 checks to see if there's already a matching handler with
+% the htmx_handler flag in the options
+% 3. if not, it creates the handler
+% 4. It needs 2 pieces of info to creat the handler - the path and the'
+% inclusion name. The path it gets from px-post.  The inclusion name is
+% the inclusion it's in, which it gets by stack inspection
+
+% bet you have module issues with the handler & inclusion
+%
+		 /**********************************
+		 *    htmx handler for the button *
+		 *********************************/
+
+:- http_handler(root(clicked), htmx_handler(do_button), [id(clicked)]).
+
+htmx_handler(Inclusion, _Request) :-
+      phrase(html(\Inclusion), Tokens),
+      format('Content-type: text/html~n~n'),
+      print_html(Tokens).
+
+:- dynamic http_dispatch:handler/4.                   % Path, Action, IsPrefix, Options
+:- multifile http_dispatch:handler/4.
+
+htmx(Spec) -->
+      html(Spec),
+      {
+          sub_term('hx-post'(Path), Spec),
+          prolog_current_frame(HTMXDCG),
+          prolog_frame_attribute(HTMXDCG, parent, Parent),
+          prolog_frame_attribute(Parent, predicate_indicator, Functor/2), %temp
+          % is it dispatched via a handler with htmx_handler(true)?
+          (   http_dispatch:handler(Path,
+                                    main:htmx_handler(Functor),
+                                    _IsPrefix,
+                                    Options),
+              memberchk(htmx_handler(true), Options)
+          ;
+              http_handler(Path, htmx_handler(Functor), [htmx_handler(true)])
+          )
+
+      }.
+
+
+
+
+
