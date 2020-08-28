@@ -77,10 +77,10 @@ home_page -->
     ]).
 
 basic_wrapper -->
-    html(div(\do_button)).
+    html(div([\do_button(1), \do_button(2), \do_button(3)])).
 
 
-do_button -->
+do_button(N) -->
       {
     get_time(Now),
     format_time(atom(Time),
@@ -89,7 +89,10 @@ do_button -->
       htmx(button(['hx-post'('/clicked'),
                    style('background-color: #FF0000;'),
                      'hx-swap'(outerHTML)],
-                  [ 'last clicked at', Time])).
+                  [ 'Number', N, 'last clicked at', Time])),
+      !.   % DEBUG
+do_button(_) -->
+    { gtrace }.
 
 % there's an inherent diff on the back end between loading, which should
 % not modify state, and clicking on the button, which could. May need
@@ -117,34 +120,60 @@ do_button -->
 		 *    htmx handler for the button *
 		 *********************************/
 
-:- http_handler(root(clicked), htmx_handler(do_button), [id(clicked)]).
+% :- http_handler(root(clicked), htmx_handler(do_button),
+% [id(clicked)]).
 
 htmx_handler(Inclusion, _Request) :-
-      phrase(html(\Inclusion), Tokens),
+      within_htmx(
+          phrase(html(\Inclusion), Tokens)
+      ),
       format('Content-type: text/html~n~n'),
       print_html(Tokens).
+
+
+within_htmx(Goal) :-
+    setup_call_cleanup(
+        b_setval(htmx, true),
+        call(Goal),
+        b_setval(htmx,false)
+    ).
 
 :- dynamic http_dispatch:handler/4.                   % Path, Action, IsPrefix, Options
 :- multifile http_dispatch:handler/4.
 
+:-html_meta htmx(html, ?, ?).
+
+% limit - no semantic args to Spec
+% limit - hx-post only
+% limit - hx-post must be in outermost element
 htmx(Spec) -->
-      html(Spec),
-      {
-          sub_term('hx-post'(Path), Spec),
-          prolog_current_frame(HTMXDCG),
-          prolog_frame_attribute(HTMXDCG, parent, Parent),
-          prolog_frame_attribute(Parent, predicate_indicator, Functor/2), %temp
-          % is it dispatched via a handler with htmx_handler(true)?
-          (   http_dispatch:handler(Path,
+    { b_setval(htmx, false) },
+    { plain_spec_params_spec(Spec, PSpec) },
+    html(PSpec),
+    {
+        sub_term('hx-post'(Path), Spec),
+        prolog_current_frame(HTMXDCG),
+        prolog_frame_attribute(HTMXDCG, parent, Parent),
+        prolog_frame_attribute(Parent, predicate_indicator, Functor/2), %temp
+        % is it dispatched via a handler with htmx_handler(true)?
+        (   http_dispatch:handler(Path,
                                     main:htmx_handler(Functor),
                                     _IsPrefix,
                                     Options),
-              memberchk(htmx_handler(true), Options)
-          ;
-              http_handler(Path, htmx_handler(Functor), [htmx_handler(true)])
-          )
+            memberchk(htmx_handler(true), Options)
+        ;
+            http_handler(Path, htmx_handler(Functor), [htmx_handler(true)])
+        )
+    }.
 
-      }.
+plain_spec_params_spec(Spec, Spec) :-
+    functor(Spec, _, 0).
+plain_spec_params_spec(Spec, PSpec) :-
+    Spec =.. [Functor | Args],
+    Args = [_ | _],
+
+
+
 
 
 

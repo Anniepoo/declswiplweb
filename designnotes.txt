@@ -1,0 +1,33 @@
+need clp(str)
+
+{.myclass}i c_str_num  
+
+elements -
+
+ * jquery type selectors
+ * some language for expressing 'innerhtml'  'loc' etc
+{.myclass div}i          the innerhtml
+{.myclass div}loc        the location
+{.myclass div}loc_off    the location offset by mouse pointer delta (for dragging)
+
+
+ * clp(str)
+{.myclass }i  c_str_num somevar
+
+ * some way of handling nondet within selectors I haven't worked out yet (eg line above)
+   maybe each is a mini-session with a hash?
+   how do things get added?
+
+ * on_server operator
+{.myclass }i  #~~> var_on_server 
+   what about webforms where the form is in inconsistent state til submit, and how do we do the failure?  
+   (this isn't about making sure some webform is 'consistent' on user input, that's still app programmers job)
+   (maybe so, but how's that look then?)
+   (chr on each element to say is/isn't valid, and submit button action depends on wiring 
+
+have the notion of time - this rule holds at submit, this rule holds within UI feedback time
+
+
+
+
+
